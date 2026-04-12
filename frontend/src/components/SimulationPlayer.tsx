@@ -18,7 +18,8 @@ function color(c?: string) {
 }
 
 function StepVisual({ step }: { step: SimulationStep }) {
-  const els = step.visual?.elements || [];
+  const els = Array.isArray(step?.visual?.elements) ? step.visual.elements : [];
+  const labels = Array.isArray(step?.labels) ? step.labels : [];
   return (
     <svg viewBox="0 0 500 300" style={{ width: '100%', height: 'auto', maxHeight: 280 }}>
       {els.map((e, i) => {
@@ -26,7 +27,7 @@ function StepVisual({ step }: { step: SimulationStep }) {
           case 'circle':
             return (
               <g key={i}>
-                <circle cx={e.x} cy={e.y} r={e.r ?? 30} fill={color(e.color)} opacity={0.85} />
+                <circle cx={Number(e.x)||0} cy={Number(e.y)||0} r={Number(e.r)||30} fill={color(e.color)} opacity={0.85} />
                 {e.text && (
                   <text x={e.x} y={e.y + 4} textAnchor="middle" fill="#fff" fontSize="11" fontWeight="600">
                     {e.text}
@@ -38,8 +39,8 @@ function StepVisual({ step }: { step: SimulationStep }) {
             return (
               <g key={i}>
                 <rect
-                  x={e.x}
-                  y={e.y}
+                  x={Number(e.x)||0}
+                  y={Number(e.y)||0}
                   width={e.w ?? 80}
                   height={e.h ?? 40}
                   rx={6}
@@ -84,7 +85,7 @@ function StepVisual({ step }: { step: SimulationStep }) {
             return null;
         }
       })}
-      {step.labels?.map((l, i) => (
+      {labels.map((l, i) => (
         <text key={`l${i}`} x={l.x} y={l.y} fill="var(--ebm-text-muted)" fontSize="11">
           {l.text}
         </text>
@@ -104,7 +105,18 @@ export function SimulationPlayer({ spec }: { spec: SimulationSpec }) {
   const [speed, setSpeed] = useState(1);
   const timerRef = useRef<number | null>(null);
 
-  const step = spec.steps[stepIdx];
+  // Defensive: handle missing/empty steps gracefully
+  if (!spec || !Array.isArray(spec.steps) || spec.steps.length === 0) {
+    return (
+      <div className="ebm-answer-card">
+        <h5>{spec?.title || 'Simulation'}</h5>
+        <p className="text-muted-ebm small">No steps were generated. Please try a different topic.</p>
+      </div>
+    );
+  }
+
+  const step = spec.steps[Math.min(stepIdx, spec.steps.length - 1)];
+  if (!step) return null;
   const reduceMotion =
     typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 

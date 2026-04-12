@@ -5,6 +5,7 @@ import { LANGUAGES, type Lang } from '@/lib/i18n';
 import { getSettings, saveSettings, resetSettings, clearHistory } from '@/lib/storage';
 import { DEFAULT_SETTINGS } from '@/lib/api';
 import type { AnswerSettings } from '@/types';
+import { ConfirmModal } from '@/components/ConfirmModal';
 
 const SPECIALTIES = [
   'Internal Medicine', 'Emergency Medicine', 'Family Medicine', 'Pediatrics', 'OB/GYN',
@@ -17,6 +18,8 @@ const SPECIALTIES = [
 export default function SettingsPage() {
   const { theme, setTheme, lang, setLang } = useApp();
   const [s, setS] = useState<AnswerSettings>(DEFAULT_SETTINGS);
+  const [confirmClearHist, setConfirmClearHist] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
 
   useEffect(() => setS(getSettings()), []);
 
@@ -222,18 +225,38 @@ export default function SettingsPage() {
         <button
           className="btn w-100 mb-2"
           style={{ background: 'var(--ebm-bg-elev)', color: 'var(--ebm-danger)' }}
-          onClick={() => { if (confirm('Clear all history?')) clearHistory(); }}
+          onClick={() => setConfirmClearHist(true)}
         >
           <i className="bi bi-trash me-1" /> Clear history
         </button>
         <button
           className="btn w-100"
           style={{ background: 'var(--ebm-bg-elev)', color: 'var(--ebm-text)' }}
-          onClick={() => { resetSettings(); setS(DEFAULT_SETTINGS); }}
+          onClick={() => setConfirmReset(true)}
         >
           <i className="bi bi-arrow-counterclockwise me-1" /> Reset settings
         </button>
       </div>
+
+      <ConfirmModal
+        open={confirmClearHist}
+        title="Clear all history?"
+        message="All saved queries and answers will be permanently removed from this device."
+        confirmLabel="Yes, clear all"
+        cancelLabel="No, keep them"
+        onConfirm={() => { clearHistory(); setConfirmClearHist(false); }}
+        onCancel={() => setConfirmClearHist(false)}
+      />
+      <ConfirmModal
+        open={confirmReset}
+        title="Reset all settings?"
+        message="Theme, language, answer style and all other preferences will return to defaults."
+        confirmLabel="Yes, reset"
+        cancelLabel="No, keep them"
+        danger={false}
+        onConfirm={() => { resetSettings(); setS(DEFAULT_SETTINGS); setConfirmReset(false); }}
+        onCancel={() => setConfirmReset(false)}
+      />
     </div>
   );
 }

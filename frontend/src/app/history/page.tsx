@@ -1,33 +1,54 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { getHistory, deleteHistoryItem, clearHistory, togglePin, addBookmark } from '@/lib/storage';
 import { AnswerView } from '@/components/AnswerView';
+import { ConfirmModal } from '@/components/ConfirmModal';
+import { exportToPDF } from '@/lib/pdfExport';
 import type { HistoryItem } from '@/types';
 
 export default function HistoryPage() {
   const [items, setItems] = useState<HistoryItem[]>([]);
   const [open, setOpen] = useState<HistoryItem | null>(null);
   const [search, setSearch] = useState('');
+  const [confirmDelete, setConfirmDelete] = useState<HistoryItem | null>(null);
+  const [confirmClear, setConfirmClear] = useState(false);
 
-  useEffect(() => {
-    setItems(getHistory());
-  }, []);
-
+  useEffect(() => setItems(getHistory()), []);
   const refresh = () => setItems(getHistory());
   const filtered = items.filter((i) => i.query.toLowerCase().includes(search.toLowerCase()));
 
   if (open) {
     return (
       <div>
-        <button className="btn btn-sm mb-2" onClick={() => setOpen(null)} style={{ background: 'var(--ebm-bg-elev)', color: 'var(--ebm-text)' }}>
-          <i className="bi bi-arrow-left me-1" /> Back
-        </button>
+        <div className="d-flex gap-2 mb-2">
+          <button
+            className="btn btn-sm"
+            onClick={() => setOpen(null)}
+            style={{ background: 'var(--ebm-bg-elev)', color: 'var(--ebm-text)' }}
+          >
+            <i className="bi bi-arrow-left me-1" /> Back
+          </button>
+          <button
+            className="btn btn-sm"
+            onClick={() => exportToPDF(open)}
+            style={{ background: 'var(--ebm-primary)', color: '#fff' }}
+          >
+            <i className="bi bi-file-earmark-pdf me-1" /> Export PDF
+          </button>
+        </div>
         <div className="ebm-answer-card">
           <h3>{open.custom_title || open.query}</h3>
           <div className="text-muted-ebm small">{new Date(open.created_at).toLocaleString()}</div>
         </div>
-        <AnswerView answer={open.answer} onAsk={(q) => { if (typeof window !== 'undefined') { sessionStorage.setItem('openebm_prefill', q); window.location.href = '/'; } }} />
+        <AnswerView
+          answer={open.answer}
+          onAsk={(q) => {
+            if (typeof window !== 'undefined') {
+              sessionStorage.setItem('openebm_prefill', q);
+              window.location.href = '/';
+            }
+          }}
+        />
       </div>
     );
   }
@@ -44,12 +65,7 @@ export default function HistoryPage() {
       {items.length > 0 && (
         <button
           className="btn btn-sm mb-3"
-          onClick={() => {
-            if (confirm('Clear all history?')) {
-              clearHistory();
-              refresh();
-            }
-          }}
+          onClick={() => setConfirmClear(true)}
           style={{ background: 'var(--ebm-bg-elev)', color: 'var(--ebm-danger)' }}
         >
           <i className="bi bi-trash me-1" /> Clear all
@@ -87,8 +103,16 @@ export default function HistoryPage() {
               <button
                 className="btn btn-sm p-1 text-muted-ebm"
                 onClick={() => {
+                  exportToPDF(item);
+                }}
+                aria-label="Export PDF"
+              >
+                <i className="bi bi-file-earmark-pdf" />
+              </button>
+              <button
+                className="btn btn-sm p-1 text-muted-ebm"
+                onClick={() => {
                   addBookmark(item);
-                  alert('Saved');
                 }}
                 aria-label="Save"
               >
@@ -96,12 +120,7 @@ export default function HistoryPage() {
               </button>
               <button
                 className="btn btn-sm p-1 text-muted-ebm"
-                onClick={() => {
-                  if (confirm('Delete this item?')) {
-                    deleteHistoryItem(item.id);
-                    refresh();
-                  }
-                }}
+                onClick={() => setConfirmDelete(item)}
                 aria-label="Delete"
               >
                 <i className="bi bi-trash" />
@@ -110,6 +129,36 @@ export default function HistoryPage() {
           </div>
         </div>
       ))}
+
+      <ConfirmModal
+        open={!!confirmDelete}
+        title="Delete this item?"
+        message={`"${confirmDelete?.custom_title || confirmDelete?.query?.slice(0, 80) || ''}" will be permanently removed from your history.`}
+        confirmLabel="Yes, delete"
+        cancelLabel="No, keep it"
+        onConfirm={() => {
+          if (confirmDelete) {
+            deleteHistoryItem(confirmDelete.id);
+            refresh();
+          }
+          setConfirmDelete(null);
+        }}
+        onCancel={() => setConfirmDelete(null)}
+      />
+
+      <ConfirmModal
+        open={confirmClear}
+        title="Clear all history?"
+        message="All saved queries and answers will be permanently removed from this device. This cannot be undone."
+        confirmLabel="Yes, clear all"
+        cancelLabel="No, keep them"
+        onConfirm={() => {
+          clearHistory();
+          refresh();
+          setConfirmClear(false);
+        }}
+        onCancel={() => setConfirmClear(false)}
+      />
     </div>
   );
 }

@@ -91,7 +91,18 @@ export default function SimulationsPage() {
         </div>
       )}
       {error && <div className="ebm-warning"><i className="bi bi-exclamation-octagon-fill" /><div>{error}</div></div>}
-      {spec && <SimulationPlayer spec={spec} />}
+      {spec && (() => {
+        try {
+          return <SimulationPlayer spec={spec} />;
+        } catch (e: any) {
+          return (
+            <div className="ebm-warning">
+              <i className="bi bi-exclamation-octagon-fill" />
+              <div>Could not render this simulation. Try another topic.</div>
+            </div>
+          );
+        }
+      })()}
       {spec?.educational_notes?.length ? (
         <div className="ebm-answer-card">
           <h3><i className="bi bi-lightbulb me-1" />Notes</h3>
