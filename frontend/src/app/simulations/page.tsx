@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { generateSimulation } from '@/lib/api';
 import { SimulationPlayer } from '@/components/SimulationPlayer';
 import { useApp } from '@/components/AppProvider';
+import { ProgressBar } from '@/components/ProgressBar';
 import type { SimulationSpec } from '@/types';
 
 const PRESETS = [
@@ -85,9 +86,8 @@ export default function SimulationsPage() {
       </div>
 
       {loading && (
-        <div className="ebm-answer-card text-center py-4">
-          <div className="spinner-border text-primary" />
-          <div className="text-muted-ebm small mt-2">Generating simulation…</div>
+        <div className="ebm-answer-card">
+          <ProgressBar label="Generating simulation…" />
         </div>
       )}
       {error && <div className="ebm-warning"><i className="bi bi-exclamation-octagon-fill" /><div>{error}</div></div>}

@@ -145,41 +145,85 @@ async def generate_answer(
     raise ValueError(f"Claude did not call submit_evidence_answer tool. Text reply: {text[:300]}")
 
 
-# ---------- Simulation (keeps JSON approach, smaller payloads, rarely fails) ----------
+# ---------- Simulation (tool_use for reliability) ----------
 
-SIMULATION_SYSTEM = """You are openEBM's simulation spec generator.
-
-Output a JSON specification for an interactive simulation (no executable code).
-Format:
-{
-  "title": "...",
-  "short_explanation": "1-2 sentences",
-  "category": "physiology|pharmacology|pathology|biochemistry|anatomy",
-  "steps": [{"id": "step1", "title": "...", "description": "...", "duration_ms": 1500,
-    "visual": {"type": "diagram", "elements": [{"kind": "circle|rect|arrow|label", "x": 50, "y": 50, "w": 100, "h": 40, "color": "primary", "text": "..."}]},
-    "labels": [{"text": "...", "x": 10, "y": 10}]}],
-  "clinical_application": "...",
-  "educational_notes": ["...", "..."],
-  "reduced_motion_safe": true
+SIMULATION_TOOL = {
+    "name": "submit_simulation_spec",
+    "description": "Submit a structured interactive simulation specification.",
+    "input_schema": {
+        "type": "object",
+        "required": ["title", "short_explanation", "category", "steps"],
+        "properties": {
+            "title": {"type": "string"},
+            "short_explanation": {"type": "string"},
+            "category": {"type": "string"},
+            "steps": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "required": ["id", "title", "description"],
+                    "properties": {
+                        "id": {"type": "string"},
+                        "title": {"type": "string"},
+                        "description": {"type": "string"},
+                        "duration_ms": {"type": "integer"},
+                        "visual": {
+                            "type": "object",
+                            "properties": {
+                                "type": {"type": "string"},
+                                "elements": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "kind": {"type": "string"},
+                                            "x": {"type": "number"},
+                                            "y": {"type": "number"},
+                                            "w": {"type": "number"},
+                                            "h": {"type": "number"},
+                                            "r": {"type": "number"},
+                                            "x2": {"type": "number"},
+                                            "y2": {"type": "number"},
+                                            "color": {"type": "string"},
+                                            "text": {"type": "string"},
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                        "labels": {"type": "array", "items": {"type": "object"}},
+                    },
+                },
+            },
+            "clinical_application": {"type": "string"},
+            "educational_notes": {"type": "array", "items": {"type": "string"}},
+            "reduced_motion_safe": {"type": "boolean"},
+        },
+    },
 }
-Coordinates: 0-500 x 0-300. Aim for 5-8 steps. Return ONLY the JSON."""
 
 
 async def generate_simulation(topic: str, language: str = "en") -> Dict:
-    import json
     client = get_client()
+    system = f"""You are openEBM's simulation spec generator.
+Generate a step-by-step interactive simulation for a medical topic.
+Coordinates: 0-500 x 0-300 viewBox. Aim for 5-8 steps.
+Element kinds: circle, rect, arrow, line, label.
+Colors: primary, accent, success, warning, danger, muted, text.
+User language: {language}
+When done, call submit_simulation_spec with the structured result."""
+
     msg = await client.messages.create(
         model=settings.CLAUDE_FAST_MODEL,
         max_tokens=4000,
-        system=SIMULATION_SYSTEM + f"\n\nUser language: {language}",
+        system=system,
         messages=[{"role": "user", "content": f"Generate a simulation for: {topic}"}],
+        tools=[SIMULATION_TOOL],
+        tool_choice={"type": "tool", "name": "submit_simulation_spec"},
     )
-    text = "".join(b.text for b in msg.content if getattr(b, "type", None) == "text").strip()
-    text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text, flags=re.MULTILINE).strip()
-    try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        m = re.search(r"\{.*\}", text, re.DOTALL)
-        if m:
-            return json.loads(m.group(0))
-        raise
+
+    for block in msg.content:
+        if getattr(block, "type", None) == "tool_use" and block.name == "submit_simulation_spec":
+            return block.input
+
+    raise ValueError("Claude did not return simulation tool_use output")

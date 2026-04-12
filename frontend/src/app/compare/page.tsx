@@ -4,6 +4,7 @@ import { ask, DEFAULT_SETTINGS } from '@/lib/api';
 import { addToHistory, getSettings } from '@/lib/storage';
 import { AnswerView } from '@/components/AnswerView';
 import { AnswerSkeleton } from '@/components/AnswerSkeleton';
+import { ProgressBar } from '@/components/ProgressBar';
 import { useApp } from '@/components/AppProvider';
 import type { AnswerResponse } from '@/types';
 
@@ -75,7 +76,7 @@ export default function ComparePage() {
         </button>
       </div>
 
-      {loading && <AnswerSkeleton />}
+      {loading && <><ProgressBar /><AnswerSkeleton /></>}
       {error && <div className="ebm-warning"><i className="bi bi-exclamation-octagon-fill" /><div>{error}</div></div>}
       {answer && <AnswerView answer={answer} />}
     </div>

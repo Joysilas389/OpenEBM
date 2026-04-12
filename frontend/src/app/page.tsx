@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { Composer } from '@/components/Composer';
 import { AnswerView } from '@/components/AnswerView';
 import { AnswerSkeleton } from '@/components/AnswerSkeleton';
+import { ProgressBar } from '@/components/ProgressBar';
 import { useApp } from '@/components/AppProvider';
 import { ask, DEFAULT_SETTINGS } from '@/lib/api';
 import { addToHistory, getSettings } from '@/lib/storage';
@@ -38,6 +39,14 @@ export default function Home() {
 
   useEffect(() => {
     setSettings(getSettings());
+    if (typeof window !== 'undefined') {
+      const prefill = sessionStorage.getItem('openebm_prefill');
+      if (prefill) {
+        sessionStorage.removeItem('openebm_prefill');
+        setTimeout(() => send(prefill), 100);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const examples = EXAMPLE_QUERIES_BY_LANG[lang] || EXAMPLE_QUERIES_BY_LANG.en;
@@ -82,7 +91,7 @@ export default function Home() {
         </div>
       )}
 
-      {loading && <AnswerSkeleton />}
+      {loading && <><ProgressBar /><AnswerSkeleton /></>}
 
       {error && (
         <div className="ebm-warning">

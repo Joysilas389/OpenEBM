@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { getBookmarks, removeBookmark } from '@/lib/storage';
 import { AnswerView } from '@/components/AnswerView';
 import type { BookmarkItem } from '@/types';
@@ -23,7 +24,7 @@ export default function SavedPage() {
           <h3>{open.custom_title || open.query}</h3>
           <div className="text-muted-ebm small">Saved {new Date(open.saved_at).toLocaleString()}</div>
         </div>
-        <AnswerView answer={open.answer} />
+        <AnswerView answer={open.answer} onAsk={(q) => { if (typeof window !== 'undefined') { sessionStorage.setItem('openebm_prefill', q); window.location.href = '/'; } }} />
       </div>
     );
   }
