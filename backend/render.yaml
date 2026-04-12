@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: openebm-api
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: APP_ENV
+        value: production
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: ALLOWED_ORIGINS
+        value: https://openebm.vercel.app
+      - key: CLAUDE_MODEL
+        value: claude-opus-4-5
+      - key: CLAUDE_FAST_MODEL
+        value: claude-sonnet-4-5
