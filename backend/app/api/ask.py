@@ -35,10 +35,37 @@ async def ask(req: AskRequest, db: Session = Depends(get_db)):
 
     candidates = data.get("references", []) or []
     candidate_count = len(candidates)
+    print(f"[ask] Claude returned {candidate_count} candidate references")
+    for i, c in enumerate(candidates[:5]):
+        print(f"[ask]   candidate {i+1}: url={c.get('url','?')[:80]} title={c.get('title','?')[:60]}")
 
     # 3) Verify candidates
     verified_refs = await verify_candidates(candidates, max_keep=req.settings.max_references)
     verified_count = len(verified_refs)
+    print(f"[ask] Verifier kept {verified_count}/{candidate_count} references")
+
+    # Fallback: if 0 verified but Claude gave candidates, accept them all as-is
+    # so the user at least sees the sources Claude found.
+    if verified_count == 0 and candidate_count > 0:
+        print(f"[ask] FALLBACK: accepting {candidate_count} unverified candidates so user sees something")
+        from app.schemas.schemas import Reference
+        verified_refs = []
+        for i, c in enumerate(candidates[:req.settings.max_references], start=1):
+            try:
+                verified_refs.append(Reference(
+                    n=i,
+                    title=c.get("title", "Untitled"),
+                    url=c.get("url", ""),
+                    source_type=c.get("source_type"),
+                    publication_year=c.get("year"),
+                    badges=["Unverified"],
+                    why_cited=c.get("why_cited"),
+                    excerpt=c.get("excerpt"),
+                    verified_status="weak-match",
+                ))
+            except Exception as e:
+                print(f"[ask]   fallback ref {i} failed: {e}")
+        verified_count = len(verified_refs)
 
     # 4) Remap inline citation numbers — keep only refs that survived verification.
     # Build mapping from old n -> new n
