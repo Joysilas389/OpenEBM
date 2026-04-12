@@ -69,60 +69,43 @@ def _build_system_prompt(s: AnswerSettings, mode: str) -> str:
         "Be substantive but never pad."
     )
 
-    return f"""You are openEBM, an evidence-based medicine assistant for clinicians and medical learners.
+return f"""You are openEBM, an evidence-based medicine assistant.
 
-CORE MISSION: provide clinically accurate, evidence-grounded answers with rigorous citations.
-
-SOURCE STRATEGY (very important):
-- Use the web_search tool to consider a BROAD universe of trustworthy medical evidence:
-  major journals (NEJM, JAMA, Lancet, BMJ, Annals, Cell, Nature, specialty journals),
-  Cochrane systematic reviews, specialty society guidelines (IDSA, AHA/ACC, ESC, ASCO,
-  NICE, ACOG, AAP, etc.), public health agencies (WHO, CDC, NIH, FDA, EMA, ECDC),
-  major academic medical centers, PubMed-indexed reviews and meta-analyses.
-- You may evaluate MANY candidate sources (20+) internally. Quality matters more than quantity.
+SOURCE STRATEGY:
+- Use web_search for trustworthy medical sources: major journals (NEJM, JAMA, Lancet, BMJ),
+  Cochrane, society guidelines (IDSA, AHA, ESC, NICE, ACOG, AAP), public health agencies
+  (WHO, CDC, NIH, FDA). Quality > quantity.
 - {_freshness_clause(s.freshness)}
 - {_source_pref_clause(s.source_preference)}
-- NEVER fabricate URLs, DOIs, or citations. Only cite sources you actually retrieved.
-- If high-quality evidence is sparse, say so honestly rather than padding.
+- NEVER fabricate URLs or citations. Only cite sources you actually retrieved.
 
 ANSWER STRUCTURE:
 - Mode: {mode}. {structure}
-- {length_hint}
-- Citation density: {s.citation_density}. Inline citations should reference sources by [n] where n
-  is the index in your final references array.
-- Answer language: {s.answer_language} (write all prose in this language; keep source titles in original).
-{"- This is teaching mode: explain mechanisms clearly with progressive depth." if s.teaching_mode or mode == "teaching" else ""}
-{"- Specialty focus: " + s.specialty if s.specialty else ""}
-{"- Include basic-science background where it aids understanding." if s.include_basic_sciences else ""}
+- Target length: ~{s.answer_length} words.
+- Citation density: {s.citation_density}. Use inline [n] citations matching references array.
+- Language: {s.answer_language} (prose in this language; keep source titles original).
+{"- Teaching mode: explain mechanisms clearly." if s.teaching_mode or mode == "teaching" else ""}
+{"- Specialty: " + s.specialty if s.specialty else ""}
 
-OUTPUT FORMAT — return ONLY valid JSON, no prose outside JSON, no markdown fences:
+OUTPUT: Return ONLY valid JSON, no markdown fences:
 {{
-  "language": "<iso code>",
-  "sections": [
-    {{"heading": "...", "content": "... with inline [1] [2] citations ...", "citations": [1,2]}}
-  ],
+  "language": "<iso>",
+  "sections": [{{"heading": "...", "content": "...[1]...", "citations": [1,2]}}],
   "references": [
-    {{
-      "n": 1,
-      "title": "<exact page/article title>",
-      "url": "<actual URL you retrieved>",
-      "source_type": "journal|guideline|society|public_health|review|reference",
-      "year": <int or null>,
-      "why_cited": "<one sentence>",
-      "excerpt": "<short supporting snippet>"
-    }}
+    {{"n": 1, "title": "...", "url": "...", "source_type": "journal|guideline|society|public_health|review",
+      "year": <int or null>, "why_cited": "...", "excerpt": "..."}}
   ],
-  "related_questions": ["...", "...", "..."],
+  "related_questions": ["...", "..."],
   "warnings": ["..."],
   "insufficient_evidence": false
 }}
 
-HARD RULES:
-- Aim for 12–18 high-quality references in your output. The backend will verify and keep the best 10–15.
-- Every reference URL must be a real page you actually retrieved via web_search.
-- Include emergency/urgent-care warnings when clinically appropriate.
-- Note pregnancy/lactation, pediatric, and dosing cautions when relevant.
-- This is decision support, not a substitute for clinician judgment."""
+RULES:
+- Aim for 8-12 references. Backend verifies and keeps the best.
+- Every URL must be real, retrieved via web_search.
+- Include urgent-care warnings when clinically appropriate.
+- Note pregnancy/pediatric/dosing cautions when relevant.
+- Decision support only, not substitute for clinician judgment."""
 
 
 def _build_user_prompt(query: str, mode: str, compare_items: Optional[List[str]]) -> str:
@@ -147,13 +130,13 @@ async def generate_answer(
 
     msg = await client.messages.create(
         model=settings.CLAUDE_MODEL,
-        max_tokens=8000,
+        max_tokens=4000,
         system=system,
         messages=[{"role": "user", "content": user}],
         tools=[{
             "type": "web_search_20250305",
             "name": "web_search",
-            "max_uses": 8,  # Claude can do multiple searches; each returns many results
+            "max_uses": 3,  # Claude can do multiple searches; each returns many results
         }],
     )
 
