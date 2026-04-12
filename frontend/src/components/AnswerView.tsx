@@ -17,7 +17,27 @@ function badgeClass(badge: string): string {
   return '';
 }
 
-/** Render content text with [n] tokens replaced by clickable citation pills. */
+/** Parse inline markdown (**bold**, *italic*) in a string chunk. */
+function renderInlineMarkdown(text: string, keyPrefix: string): ReactNode[] {
+  const parts: ReactNode[] = [];
+  // Split on **bold** and *italic* markers, preserving them
+  const regex = /(\*\*[^*]+\*\*|\*[^*]+\*)/g;
+  const tokens = text.split(regex);
+  tokens.forEach((tok, i) => {
+    if (!tok) return;
+    if (tok.startsWith('**') && tok.endsWith('**')) {
+      parts.push(<strong key={`${keyPrefix}b${i}`}>{tok.slice(2, -2)}</strong>);
+    } else if (tok.startsWith('*') && tok.endsWith('*') && tok.length > 2) {
+      parts.push(<em key={`${keyPrefix}i${i}`}>{tok.slice(1, -1)}</em>);
+    } else {
+      parts.push(tok);
+    }
+  });
+  return parts;
+}
+
+/** Render content text with [n] tokens replaced by clickable citation pills
+ *  AND inline markdown (**bold**, *italic*) rendered. */
 function renderWithCitations(content: string, refs: Reference[], onRef: (r: Reference) => void): ReactNode[] {
   const out: ReactNode[] = [];
   const re = /\[(\d+)\]/g;
@@ -25,7 +45,9 @@ function renderWithCitations(content: string, refs: Reference[], onRef: (r: Refe
   let match: RegExpExecArray | null;
   let key = 0;
   while ((match = re.exec(content)) !== null) {
-    if (match.index > last) out.push(content.slice(last, match.index));
+    if (match.index > last) {
+      out.push(...renderInlineMarkdown(content.slice(last, match.index), `t${key}`));
+    }
     const n = parseInt(match[1], 10);
     const ref = refs.find((r) => r.n === n);
     if (ref) {
@@ -39,7 +61,9 @@ function renderWithCitations(content: string, refs: Reference[], onRef: (r: Refe
     }
     last = re.lastIndex;
   }
-  if (last < content.length) out.push(content.slice(last));
+  if (last < content.length) {
+    out.push(...renderInlineMarkdown(content.slice(last), `t${key}end`));
+  }
   return out;
 }
 
