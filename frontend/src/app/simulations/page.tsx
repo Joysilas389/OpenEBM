@@ -18,13 +18,16 @@ const PRESETS = [
   'Glycolysis',
   'Krebs cycle',
   'Electron transport chain',
+  'Beta-lactam mechanism of action',
+  'Insulin signaling',
+  'Baroreceptor reflex',
 ];
 
 export default function SimulationsPage() {
   const { lang } = useApp();
   const [topic, setTopic] = useState('');
   const [loading, setLoading] = useState(false);
-  const [spec, setSpec] = useState<SimulationSpec | null>(null);
+  const [spec, setSpec] = useState<(SimulationSpec & { mechanism_first_principles?: string }) | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function run(t: string) {
@@ -33,9 +36,9 @@ export default function SimulationsPage() {
     setSpec(null);
     try {
       const s = await generateSimulation(t, lang);
-      setSpec(s);
+      setSpec(s as any);
     } catch (e: any) {
-      setError(e.message);
+      setError(e.message || 'Failed to generate simulation');
     } finally {
       setLoading(false);
     }
@@ -46,7 +49,8 @@ export default function SimulationsPage() {
       <div className="ebm-answer-card">
         <h3><i className="bi bi-activity me-1" />Interactive Simulations</h3>
         <p className="text-muted-ebm small mb-3">
-          Step-by-step animations of physiology, biochemistry, and pharmacology — generated on demand.
+          First-principles step-by-step visualizations for <strong>any</strong> medical topic —
+          mechanism plus bedside application, generated on demand.
         </p>
         <div className="input-group mb-3">
           <input
@@ -54,12 +58,13 @@ export default function SimulationsPage() {
             placeholder="Any medical concept…"
             value={topic}
             onChange={(e) => setTopic(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && topic.trim()) run(topic); }}
             style={{ background: 'var(--ebm-bg-elev)', color: 'var(--ebm-text)', borderColor: 'var(--ebm-border)' }}
           />
           <button
             className="btn"
             style={{ background: 'var(--ebm-primary)', color: '#fff' }}
-            disabled={loading || !topic}
+            disabled={loading || !topic.trim()}
             onClick={() => run(topic)}
           >
             {loading ? <span className="spinner-border spinner-border-sm" /> : <i className="bi bi-magic" />}
@@ -87,30 +92,28 @@ export default function SimulationsPage() {
 
       {loading && (
         <div className="ebm-answer-card">
-          <ProgressBar label="Generating simulation…" />
+          <ProgressBar label="Building simulation from first principles…" />
         </div>
       )}
-      {error && <div className="ebm-warning"><i className="bi bi-exclamation-octagon-fill" /><div>{error}</div></div>}
-      {spec && (() => {
-        try {
-          return <SimulationPlayer spec={spec} />;
-        } catch (e: any) {
-          return (
-            <div className="ebm-warning">
-              <i className="bi bi-exclamation-octagon-fill" />
-              <div>Could not render this simulation. Try another topic.</div>
-            </div>
-          );
-        }
-      })()}
-      {spec?.educational_notes?.length ? (
-        <div className="ebm-answer-card">
-          <h3><i className="bi bi-lightbulb me-1" />Notes</h3>
-          <ul className="mb-0 ps-3">
-            {spec.educational_notes.map((n, i) => <li key={i} className="small mb-1">{n}</li>)}
-          </ul>
+      {error && (
+        <div className="ebm-warning">
+          <i className="bi bi-exclamation-octagon-fill" />
+          <div>{error}</div>
         </div>
-      ) : null}
+      )}
+      {spec && (
+        <>
+          <SimulationPlayer spec={spec} />
+          {spec.educational_notes?.length ? (
+            <div className="ebm-answer-card">
+              <h3><i className="bi bi-lightbulb me-1" />High-yield pearls</h3>
+              <ul className="mb-0 ps-3">
+                {spec.educational_notes.map((n, i) => <li key={i} className="small mb-1">{n}</li>)}
+              </ul>
+            </div>
+          ) : null}
+        </>
+      )}
     </div>
   );
 }
