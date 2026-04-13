@@ -1,4 +1,3 @@
-import type { SimulationSpec } from '@/types';
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { useApp } from './AppProvider';

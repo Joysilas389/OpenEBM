@@ -1,8 +1,8 @@
 'use client';
 import { useState, KeyboardEvent } from 'react';
-import SimulationPlayer from '@/components/SimulationPlayer';
-import TopBar from '@/components/TopBar';
-import BottomNav from '@/components/BottomNav';
+import { SimulationPlayer } from '@/components/SimulationPlayer';
+import { TopBar } from '@/components/TopBar';
+import { BottomNav } from '@/components/BottomNav';
 import { generateSimulation } from '@/lib/api';
 import { addSimulationToHistory } from '@/lib/storage';
 import type { SimulationSpec } from '@/types';

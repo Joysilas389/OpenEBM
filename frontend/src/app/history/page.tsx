@@ -1,9 +1,9 @@
 'use client';
 import { useEffect, useState } from 'react';
-import TopBar from '@/components/TopBar';
-import BottomNav from '@/components/BottomNav';
-import AnswerView from '@/components/AnswerView';
-import SimulationPlayer from '@/components/SimulationPlayer';
+import { TopBar } from '@/components/TopBar';
+import { BottomNav } from '@/components/BottomNav';
+import { AnswerView } from '@/components/AnswerView';
+import { SimulationPlayer } from '@/components/SimulationPlayer';
 import {
   getHistory, deleteHistoryItem, clearHistory, renameHistoryItem, togglePin,
   addBookmark, removeBookmark, isBookmarked,
