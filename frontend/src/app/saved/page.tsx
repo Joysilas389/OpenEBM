@@ -75,7 +75,7 @@ export default function SavedPage() {
                 {item.custom_title || item.query}
               </div>
               <div className="text-muted-ebm small">
-                {item.answer.references.length} refs · {item.answer.language}
+                {item.answer?.references.length ?? 0} refs · {item.answer?.language ?? ""}
               </div>
             </div>
             <div className="d-flex gap-1" onClick={(e) => e.stopPropagation()}>
