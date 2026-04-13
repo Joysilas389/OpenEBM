@@ -47,48 +47,41 @@ export interface AnswerSettings {
   answer_language: string;
 }
 
+// v3: simulation payload
+export interface SimulationSpec {
+  title: string;
+  archetype?: string;
+  artifact_html: string;
+  mechanism_first_principles: string;
+  clinical_application: string;
+  pearls?: string[];
+  self_check?: Record<string, boolean>;
+}
+
+// v3: history kinds
+export type HistoryKind = 'ask' | 'compare' | 'teaching' | 'simulation';
+
 export interface HistoryItem {
   id: string;
   query: string;
-  answer: AnswerResponse;
+  answer: AnswerResponse | null;  // null for simulation items
   created_at: number;
   pinned?: boolean;
   custom_title?: string;
+  kind?: HistoryKind;              // v3: defaults to 'ask' on read
+  simulation?: SimulationSpec;     // v3: present when kind === 'simulation'
 }
 
 export interface BookmarkItem extends HistoryItem {
   saved_at: number;
 }
 
+// Legacy — kept for backward compatibility but unused by v3 player
 export interface SimulationStep {
   id: string;
   title: string;
   description: string;
   duration_ms: number;
-  visual: {
-    type: string;
-    elements: Array<{
-      kind: 'circle' | 'rect' | 'arrow' | 'label' | 'line';
-      x: number;
-      y: number;
-      w?: number;
-      h?: number;
-      r?: number;
-      x2?: number;
-      y2?: number;
-      color?: string;
-      text?: string;
-    }>;
-  };
-  labels: Array<{ text: string; x: number; y: number }>;
-}
-
-export interface SimulationSpec {
-  title: string;
-  short_explanation: string;
-  category: string;
-  steps: SimulationStep[];
-  clinical_application: string;
-  educational_notes: string[];
-  reduced_motion_safe: boolean;
+  visual: any;
+  labels: any[];
 }

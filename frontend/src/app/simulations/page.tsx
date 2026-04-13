@@ -1,119 +1,101 @@
 'use client';
-import { useState } from 'react';
+import { useState, KeyboardEvent } from 'react';
+import SimulationPlayer from '@/components/SimulationPlayer';
+import TopBar from '@/components/TopBar';
+import BottomNav from '@/components/BottomNav';
 import { generateSimulation } from '@/lib/api';
-import { SimulationPlayer } from '@/components/SimulationPlayer';
-import { useApp } from '@/components/AppProvider';
-import { ProgressBar } from '@/components/ProgressBar';
-
-interface VisualSpec {
-  title: string;
-  archetype?: string;
-  artifact_html: string;
-  mechanism_first_principles: string;
-  clinical_application: string;
-  pearls?: string[];
-}
+import { addSimulationToHistory } from '@/lib/storage';
+import type { SimulationSpec } from '@/types';
 
 const PRESETS = [
   'Cardiac cycle',
-  'Nephron function',
-  'Renin–Angiotensin–Aldosterone System',
+  'Action potential of a ventricular myocyte',
+  'Renin–angiotensin–aldosterone system',
+  'Glomerular filtration',
+  'Oxygen–hemoglobin dissociation curve',
+  'Insulin signaling and GLUT4 translocation',
   'Coagulation cascade',
-  'Oxygen-hemoglobin dissociation curve',
-  'Acid-base physiology',
-  'Neuronal action potential',
-  'Skeletal muscle contraction',
-  'Glycolysis',
   'Krebs cycle',
-  'Electron transport chain',
+  'Nephron countercurrent multiplier',
   'Baroreceptor reflex',
-  'Insulin signaling',
-  'HPA axis',
-  'Beta-lactam mechanism of action',
 ];
 
 export default function SimulationsPage() {
-  const { lang } = useApp();
   const [topic, setTopic] = useState('');
   const [loading, setLoading] = useState(false);
-  const [spec, setSpec] = useState<VisualSpec | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [spec, setSpec] = useState<SimulationSpec | null>(null);
 
-  async function run(t: string) {
+  async function run(q?: string) {
+    const query = (q ?? topic).trim();
+    if (!query || loading) return;
     setLoading(true);
     setError(null);
     setSpec(null);
     try {
-      const s = await generateSimulation(t, lang);
-      setSpec(s as unknown as VisualSpec);
+      const s = (await generateSimulation(query)) as unknown as SimulationSpec;
+      setSpec(s);
+      try { addSimulationToHistory(query, s); } catch {}
     } catch (e: any) {
-      setError(e.message || 'Failed to generate simulation');
+      setError(e?.message || 'Failed to build simulation.');
     } finally {
       setLoading(false);
     }
   }
 
+  function onKey(e: KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter') run();
+  }
+
   return (
-    <div>
-      <div className="ebm-answer-card">
-        <h3><i className="bi bi-activity me-1" />Interactive Simulations</h3>
-        <p className="text-muted-ebm small mb-3">
-          Type any medical topic. openEBM generates a self-contained interactive visual plus a
-          first-principles mechanism and bedside clinical notes.
+    <>
+      <TopBar />
+      <main className="container-app py-3">
+        <h1 className="h4 fw-bold mb-1">Simulations</h1>
+        <p className="text-muted small mb-3">
+          Interactive visual explanations of any mechanism, process, or pathway.
         </p>
-        <div className="input-group mb-3">
+
+        <div className="input-group mb-2">
           <input
             className="form-control"
-            placeholder="Any medical concept…"
+            placeholder="e.g. Cardiac cycle, Krebs cycle, Coagulation cascade…"
             value={topic}
             onChange={(e) => setTopic(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter' && topic.trim()) run(topic); }}
-            style={{ background: 'var(--ebm-bg-elev)', color: 'var(--ebm-text)', borderColor: 'var(--ebm-border)' }}
+            onKeyDown={onKey}
+            disabled={loading}
           />
-          <button
-            className="btn"
-            style={{ background: 'var(--ebm-primary)', color: '#fff' }}
-            disabled={loading || !topic.trim()}
-            onClick={() => run(topic)}
-          >
-            {loading ? <span className="spinner-border spinner-border-sm" /> : <i className="bi bi-magic" />}
+          <button className="btn btn-primary" onClick={() => run()} disabled={loading || !topic.trim()}>
+            {loading ? 'Building…' : 'Generate'}
           </button>
         </div>
-        <div className="d-flex flex-wrap gap-2">
-          {PRESETS.map((p) => (
-            <button
-              key={p}
-              onClick={() => { setTopic(p); run(p); }}
-              className="btn btn-sm"
-              style={{
-                background: 'var(--ebm-bg-elev)',
-                border: '1px solid var(--ebm-border)',
-                color: 'var(--ebm-text)',
-                fontSize: '.78rem',
-                borderRadius: 14,
-              }}
-            >
-              {p}
-            </button>
-          ))}
-        </div>
-      </div>
 
-      {loading && (
-        <div className="ebm-answer-card">
-          <ProgressBar label="Building interactive visual…" />
-          <div className="text-muted-ebm small mt-2" style={{ fontSize: '.78rem' }}>
-            Claude is selecting an archetype, authoring the artifact, and self-checking it.
+        {!spec && !loading && (
+          <div className="mb-3">
+            <div className="small text-muted mb-1">Try a preset:</div>
+            <div className="d-flex flex-wrap gap-2">
+              {PRESETS.map((p) => (
+                <button key={p} className="btn btn-sm btn-outline-secondary"
+                        onClick={() => { setTopic(p); run(p); }} disabled={loading}>
+                  {p}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
-      )}
-      {error && (
-        <div className="ebm-warning">
-          <i className="bi bi-exclamation-octagon-fill" />
-          <div>{error}</div>
-        </div>
-      )}
-      {spec && <SimulationPlayer spec={spec} />}
-    </div>
+        )}
+
+        {loading && (
+          <div className="text-center py-4">
+            <div className="spinner-border text-primary" role="status" />
+            <div className="small text-muted mt-2">Building interactive visual…</div>
+          </div>
+        )}
+
+        {error && <div className="alert alert-danger small">{error}</div>}
+
+        {spec && <SimulationPlayer spec={spec} />}
+      </main>
+      <BottomNav />
+    </>
   );
 }

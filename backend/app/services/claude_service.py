@@ -365,6 +365,15 @@ REQUIRED ELEMENTS:
   ✓ Inline <svg viewBox="0 0 340 260"> (or similar) — responsive width:100%
   ✓ 4-7 phases/steps with a phase title and description above the SVG
   ✓ Play / Pause / Back / Next / Reset buttons (min 44×40px for touch)
+  ✓ A Speed selector (Slow / Normal / Fast / Very Fast) that sets the autoplay
+    interval to 3000ms / 1800ms / 900ms / 450ms respectively. Default: Normal.
+  ✓ Motion must be VISUAL motion, not just recoloring. If the topic involves
+    contraction, flow, movement, growth, pulsing, rotation, binding, or any
+    physical change — represent it with CSS transform (scale, translate,
+    rotate), SMIL <animate>/<animateTransform>, or @keyframes. A heart must
+    visibly shrink during contraction. A ribosome must visibly slide along
+    mRNA. A wave must visibly propagate. Recoloring alone is not motion.
+    This rule is topic-agnostic: represent motion with motion.
   ✓ Numbered phase dots for direct navigation
   ✓ Minimum 3000 characters total
   ✓ Every shape has a clear educational purpose

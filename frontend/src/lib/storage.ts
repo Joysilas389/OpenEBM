@@ -1,8 +1,7 @@
-/**
- * Local-first history & bookmarks. Uses localStorage for portability;
- * schema is compatible with future server-side sync via /api/sessions.
- */
-import type { AnswerResponse, HistoryItem, BookmarkItem, AnswerSettings } from '@/types';
+import type {
+  AnswerResponse, HistoryItem, BookmarkItem, AnswerSettings,
+  SimulationSpec, HistoryKind,
+} from '@/types';
 import { DEFAULT_SETTINGS } from './api';
 
 const HISTORY_KEY = 'openebm_history_v1';
@@ -26,21 +25,50 @@ function write<T>(key: string, value: T) {
   } catch {}
 }
 
-// ---------- History ----------
-export function getHistory(): HistoryItem[] {
-  return read<HistoryItem[]>(HISTORY_KEY, []).sort((a, b) => b.created_at - a.created_at);
+// Default kind to 'ask' for legacy entries that predate v3
+function normalizeItem(item: HistoryItem): HistoryItem {
+  if (!item.kind) item.kind = 'ask';
+  return item;
 }
 
-export function addToHistory(query: string, answer: AnswerResponse): HistoryItem {
+// ---------- History ----------
+export function getHistory(): HistoryItem[] {
+  return read<HistoryItem[]>(HISTORY_KEY, [])
+    .map(normalizeItem)
+    .sort((a, b) => b.created_at - a.created_at);
+}
+
+export function addToHistory(
+  query: string,
+  answer: AnswerResponse,
+  kind: HistoryKind = 'ask',
+): HistoryItem {
   const item: HistoryItem = {
     id: 'h_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
     query,
     answer,
     created_at: Date.now(),
+    kind,
   };
   const list = read<HistoryItem[]>(HISTORY_KEY, []);
   list.unshift(item);
-  write(HISTORY_KEY, list.slice(0, 200)); // cap
+  write(HISTORY_KEY, list.slice(0, 200));
+  return item;
+}
+
+// v3: add a simulation entry (no AnswerResponse; carries the spec instead)
+export function addSimulationToHistory(query: string, spec: SimulationSpec): HistoryItem {
+  const item: HistoryItem = {
+    id: 'h_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    query,
+    answer: null,
+    simulation: spec,
+    created_at: Date.now(),
+    kind: 'simulation',
+  };
+  const list = read<HistoryItem[]>(HISTORY_KEY, []);
+  list.unshift(item);
+  write(HISTORY_KEY, list.slice(0, 200));
   return item;
 }
 
@@ -73,11 +101,13 @@ export function togglePin(id: string) {
 
 // ---------- Bookmarks ----------
 export function getBookmarks(): BookmarkItem[] {
-  return read<BookmarkItem[]>(BOOKMARKS_KEY, []).sort((a, b) => b.saved_at - a.saved_at);
+  return read<BookmarkItem[]>(BOOKMARKS_KEY, [])
+    .map((b) => normalizeItem(b) as BookmarkItem)
+    .sort((a, b) => b.saved_at - a.saved_at);
 }
 
 export function addBookmark(item: HistoryItem): BookmarkItem {
-  const bm: BookmarkItem = { ...item, saved_at: Date.now() };
+  const bm: BookmarkItem = { ...normalizeItem(item), saved_at: Date.now() };
   const list = read<BookmarkItem[]>(BOOKMARKS_KEY, []);
   if (!list.find((b) => b.id === item.id)) {
     list.unshift(bm);
