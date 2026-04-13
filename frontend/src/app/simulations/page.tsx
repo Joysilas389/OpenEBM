@@ -46,8 +46,9 @@ export default function SimulationsPage() {
   }
 
   return (
-    <div>
-      <div className="px-2 py-3">
+    <>
+      
+      <main className="container-app py-3">
         <h1 className="h4 fw-bold mb-1">Simulations</h1>
         <p className="text-muted small mb-3">
           Interactive visual explanations of any mechanism, process, or pathway.
@@ -92,6 +93,7 @@ export default function SimulationsPage() {
 
         {spec && <SimulationPlayer spec={spec} />}
       </main>
+      
     </>
   );
 }
