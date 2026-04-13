@@ -40,7 +40,7 @@ export default function SavedPage() {
           <div className="text-muted-ebm small">Saved {new Date(open.saved_at).toLocaleString()}</div>
         </div>
         <AnswerView
-          answer={open.answer}
+          answer={open.answer!}
           onAsk={(q) => {
             if (typeof window !== 'undefined') {
               sessionStorage.setItem('openebm_prefill', q);
