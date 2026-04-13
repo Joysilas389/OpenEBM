@@ -45,7 +45,7 @@ export default function SimulationsPage() {
     setSpec(null);
     try {
       const s = await generateSimulation(t, lang);
-      setSpec(s as VisualSpec);
+      setSpec(s as unknown as VisualSpec);
     } catch (e: any) {
       setError(e.message || 'Failed to generate simulation');
     } finally {
