@@ -78,7 +78,7 @@ export default function HistoryPage() {
           {kind === 'simulation' && open.simulation
             ? <SimulationPlayer spec={open.simulation} />
             : open.answer
-              ? <AnswerView answer={open.answer} query={open.query} />
+              ? <AnswerView answer={open.answer} />
               : <div className="alert alert-warning small">This item has no content.</div>}
         </main>
         <BottomNav />
