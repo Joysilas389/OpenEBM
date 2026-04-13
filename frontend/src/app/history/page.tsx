@@ -1,7 +1,5 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { TopBar } from '@/components/TopBar';
-import { BottomNav } from '@/components/BottomNav';
 import { AnswerView } from '@/components/AnswerView';
 import { SimulationPlayer } from '@/components/SimulationPlayer';
 import {
@@ -57,9 +55,8 @@ export default function HistoryPage() {
   if (open) {
     const kind = (open.kind || 'ask') as HistoryKind;
     return (
-      <>
-        <TopBar />
-        <main className="container-app py-3">
+      <div>
+        <div className="px-2 py-3">
           <button className="btn btn-sm btn-outline-secondary mb-3" onClick={() => setOpen(null)}>
             ← Back to history
           </button>
@@ -80,9 +77,8 @@ export default function HistoryPage() {
             : open.answer
               ? <AnswerView answer={open.answer} />
               : <div className="alert alert-warning small">This item has no content.</div>}
-        </main>
-        <BottomNav />
-      </>
+        </div>
+    </div>
     );
   }
 
@@ -92,12 +88,12 @@ export default function HistoryPage() {
     return (
       <div key={i.id} className="card mb-2 shadow-sm">
         <div className="card-body py-2 px-3">
-          <div className="d-flex align-items-start gap-2">
+          <div className="d-flex align-items-start gap-2" style={{ minWidth: 0, overflow: "hidden" }}>
             <span className={`badge rounded-pill ${KIND_META[kind].cls} flex-shrink-0 mt-1`}>
               {KIND_META[kind].label}
             </span>
-            <div className="flex-grow-1 min-w-0" role="button" onClick={() => setOpen(i)}>
-              <div className="fw-semibold text-truncate">{title}</div>
+            <div className="flex-grow-1" style={{ minWidth: 0, overflow: "hidden" }} role="button" onClick={() => setOpen(i)}>
+              <div className="fw-semibold text-truncate" style={{ maxWidth: "100%" }}>{title}</div>
               <div className="small text-muted">
                 {new Date(i.created_at).toLocaleString()}
               </div>
@@ -122,8 +118,7 @@ export default function HistoryPage() {
 
   return (
     <>
-      <TopBar />
-      <main className="container-app py-3">
+      <div className="px-2 py-3">
         <div className="d-flex justify-content-between align-items-center mb-2">
           <h1 className="h4 fw-bold mb-0">History</h1>
           {items.length > 0 && (
@@ -142,7 +137,7 @@ export default function HistoryPage() {
           </div>
         )}
         {pinned.length > 0 && (
-          <>
+          <div>
             <div className="small text-muted fw-semibold mb-1">Pinned</div>
             {pinned.map(renderRow)}
             <div className="small text-muted fw-semibold mt-3 mb-1">All</div>
@@ -150,7 +145,6 @@ export default function HistoryPage() {
         )}
         {rest.map(renderRow)}
       </main>
-      <BottomNav />
     </>
   );
 }

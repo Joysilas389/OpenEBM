@@ -1,8 +1,6 @@
 'use client';
 import { useState, KeyboardEvent } from 'react';
 import { SimulationPlayer } from '@/components/SimulationPlayer';
-import { TopBar } from '@/components/TopBar';
-import { BottomNav } from '@/components/BottomNav';
 import { generateSimulation } from '@/lib/api';
 import { addSimulationToHistory } from '@/lib/storage';
 import type { SimulationSpec } from '@/types';
@@ -48,9 +46,8 @@ export default function SimulationsPage() {
   }
 
   return (
-    <>
-      <TopBar />
-      <main className="container-app py-3">
+    <div>
+      <div className="px-2 py-3">
         <h1 className="h4 fw-bold mb-1">Simulations</h1>
         <p className="text-muted small mb-3">
           Interactive visual explanations of any mechanism, process, or pathway.
@@ -95,7 +92,6 @@ export default function SimulationsPage() {
 
         {spec && <SimulationPlayer spec={spec} />}
       </main>
-      <BottomNav />
     </>
   );
 }
