@@ -121,7 +121,7 @@ async def generate_answer(
 
     msg = await client.messages.create(
         model=settings.CLAUDE_MODEL,
-        max_tokens=6000,
+        max_tokens=12000,
         system=system,
         messages=[{"role": "user", "content": user}],
         tools=[
