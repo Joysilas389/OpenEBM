@@ -4,7 +4,15 @@ import { generateSimulation } from '@/lib/api';
 import { SimulationPlayer } from '@/components/SimulationPlayer';
 import { useApp } from '@/components/AppProvider';
 import { ProgressBar } from '@/components/ProgressBar';
-import type { SimulationSpec } from '@/types';
+
+interface VisualSpec {
+  title: string;
+  archetype?: string;
+  artifact_html: string;
+  mechanism_first_principles: string;
+  clinical_application: string;
+  pearls?: string[];
+}
 
 const PRESETS = [
   'Cardiac cycle',
@@ -18,16 +26,17 @@ const PRESETS = [
   'Glycolysis',
   'Krebs cycle',
   'Electron transport chain',
-  'Beta-lactam mechanism of action',
-  'Insulin signaling',
   'Baroreceptor reflex',
+  'Insulin signaling',
+  'HPA axis',
+  'Beta-lactam mechanism of action',
 ];
 
 export default function SimulationsPage() {
   const { lang } = useApp();
   const [topic, setTopic] = useState('');
   const [loading, setLoading] = useState(false);
-  const [spec, setSpec] = useState<(SimulationSpec & { mechanism_first_principles?: string }) | null>(null);
+  const [spec, setSpec] = useState<VisualSpec | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function run(t: string) {
@@ -36,7 +45,7 @@ export default function SimulationsPage() {
     setSpec(null);
     try {
       const s = await generateSimulation(t, lang);
-      setSpec(s as any);
+      setSpec(s as VisualSpec);
     } catch (e: any) {
       setError(e.message || 'Failed to generate simulation');
     } finally {
@@ -49,8 +58,8 @@ export default function SimulationsPage() {
       <div className="ebm-answer-card">
         <h3><i className="bi bi-activity me-1" />Interactive Simulations</h3>
         <p className="text-muted-ebm small mb-3">
-          First-principles step-by-step visualizations for <strong>any</strong> medical topic —
-          mechanism plus bedside application, generated on demand.
+          Type any medical topic. openEBM generates a self-contained interactive visual plus a
+          first-principles mechanism and bedside clinical notes.
         </p>
         <div className="input-group mb-3">
           <input
@@ -92,7 +101,10 @@ export default function SimulationsPage() {
 
       {loading && (
         <div className="ebm-answer-card">
-          <ProgressBar label="Building simulation from first principles…" />
+          <ProgressBar label="Building interactive visual…" />
+          <div className="text-muted-ebm small mt-2" style={{ fontSize: '.78rem' }}>
+            Claude is selecting an archetype, authoring the artifact, and self-checking it.
+          </div>
         </div>
       )}
       {error && (
@@ -101,19 +113,7 @@ export default function SimulationsPage() {
           <div>{error}</div>
         </div>
       )}
-      {spec && (
-        <>
-          <SimulationPlayer spec={spec} />
-          {spec.educational_notes?.length ? (
-            <div className="ebm-answer-card">
-              <h3><i className="bi bi-lightbulb me-1" />High-yield pearls</h3>
-              <ul className="mb-0 ps-3">
-                {spec.educational_notes.map((n, i) => <li key={i} className="small mb-1">{n}</li>)}
-              </ul>
-            </div>
-          ) : null}
-        </>
-      )}
+      {spec && <SimulationPlayer spec={spec} />}
     </div>
   );
 }

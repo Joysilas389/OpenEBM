@@ -1,8 +1,4 @@
-"""Claude API service — uses structured tool output (no JSON parsing of free text).
-
-This eliminates the 'Expecting , delimiter' class of errors entirely. Claude must
-fill in a typed schema; the SDK handles encoding. We get a Python dict back.
-"""
+"""Claude API service — openEBM v2 simulation engine (VisualEngine artifacts)."""
 import re
 from typing import Dict, List, Optional
 from anthropic import AsyncAnthropic
@@ -22,7 +18,7 @@ def get_client() -> AsyncAnthropic:
     return _client
 
 
-# ---------- Structured output schema ----------
+# ---------- Ask / Compare / Teaching (UNCHANGED from v1 — byte-for-byte) ----------
 
 ANSWER_TOOL = {
     "name": "submit_evidence_answer",
@@ -135,175 +131,347 @@ async def generate_answer(
         tool_choice={"type": "auto"},
     )
 
-    # Find the tool_use block with our structured answer
     for block in msg.content:
         if getattr(block, "type", None) == "tool_use" and block.name == "submit_evidence_answer":
-            return block.input  # already a Python dict, no JSON parsing needed
+            return block.input
 
-    # Fallback: if Claude replied with text only (shouldn't happen with tool_choice=auto but safety net)
     text = "".join(b.text for b in msg.content if getattr(b, "type", None) == "text")
     raise ValueError(f"Claude did not call submit_evidence_answer tool. Text reply: {text[:300]}")
 
 
-# ---------- Simulation (upgraded: worked-example prompt + richer schema) ----------
+# ============================================================
+# SIMULATION v2 — VisualEngine HTML artifact generator
+# ============================================================
 
 SIMULATION_TOOL = {
-    "name": "submit_simulation_spec",
-    "description": "Submit an interactive medical simulation with first-principles mechanism and bedside application.",
+    "name": "submit_visual_artifact",
+    "description": "Submit a complete self-contained HTML artifact plus educational prose for a medical topic.",
     "input_schema": {
         "type": "object",
-        "required": ["title", "short_explanation", "category", "steps",
-                     "mechanism_first_principles", "clinical_application"],
+        "required": [
+            "title", "archetype", "artifact_html",
+            "mechanism_first_principles", "clinical_application",
+            "pearls", "self_check"
+        ],
         "properties": {
-            "title": {"type": "string"},
-            "short_explanation": {"type": "string",
-                "description": "One-sentence plain-language summary."},
-            "category": {"type": "string",
-                "description": "physiology | pharmacology | pathology | biochemistry | anatomy | immunology"},
-            "steps": {
-                "type": "array",
-                "minItems": 5,
-                "maxItems": 10,
-                "items": {
-                    "type": "object",
-                    "required": ["id", "title", "description"],
-                    "properties": {
-                        "id": {"type": "string"},
-                        "title": {"type": "string"},
-                        "description": {"type": "string",
-                            "description": "2-4 sentences. What happens AND why, mechanistically."},
-                        "duration_ms": {"type": "integer"},
-                        "visual": {
-                            "type": "object",
-                            "properties": {
-                                "type": {"type": "string"},
-                                "elements": {
-                                    "type": "array",
-                                    "items": {
-                                        "type": "object",
-                                        "required": ["kind"],
-                                        "properties": {
-                                            "kind": {"type": "string",
-                                                "description": "circle | rect | arrow | line | label"},
-                                            "x": {"type": "number"},
-                                            "y": {"type": "number"},
-                                            "w": {"type": "number"},
-                                            "h": {"type": "number"},
-                                            "r": {"type": "number"},
-                                            "x2": {"type": "number"},
-                                            "y2": {"type": "number"},
-                                            "color": {"type": "string",
-                                                "description": "primary|accent|success|warning|danger|muted|text"},
-                                            "text": {"type": "string"},
-                                        },
-                                    },
-                                },
-                            },
-                        },
-                    },
-                },
+            "title": {"type": "string", "description": "Topic title, 2-6 words."},
+            "archetype": {
+                "type": "string",
+                "description": "Visual archetype chosen: cyclic_process | flow_pathway | membrane_dynamics | anatomical_cross_section | feedback_loop | comparison_curve | phase_timeline | reaction_mechanism"
+            },
+            "artifact_html": {
+                "type": "string",
+                "description": "Complete self-contained HTML document. Starts with <!DOCTYPE html>. Includes inline CSS, inline JS, inline SVG. Must render in a sandboxed iframe with only allow-scripts. Reads ?theme=light|dark from URL for theming. Responsive down to 340px. Contains its own play/pause/reset/step controls. At least 3000 characters."
             },
             "mechanism_first_principles": {
                 "type": "string",
-                "description": "3-6 sentences explaining the core mechanism from first principles — "
-                               "the physics/chemistry/biology 'why', not just 'what'.",
+                "description": "4-7 sentences. First-principles mechanism (physics/chemistry/biology WHY, not textbook WHAT). Plain prose, no markdown."
             },
             "clinical_application": {
                 "type": "string",
-                "description": "3-6 sentences: how this appears at the bedside — presentations, "
-                               "diagnostics, and how understanding the mechanism changes management.",
+                "description": "4-7 sentences. Concrete bedside picture: presentations, tests, decisions, and how the mechanism drives each. Plain prose."
             },
-            "educational_notes": {
+            "pearls": {
                 "type": "array",
                 "items": {"type": "string"},
-                "description": "3-5 concise high-yield pearls.",
+                "description": "3-5 high-yield clinical pearls. One sentence each."
             },
-            "reduced_motion_safe": {"type": "boolean"},
-        },
-    },
+            "self_check": {
+                "type": "object",
+                "required": [
+                    "archetype_matches_topic",
+                    "elements_all_purposeful",
+                    "labels_do_not_overlap_shapes",
+                    "has_play_pause_reset",
+                    "dark_mode_supported",
+                    "responsive_below_400px",
+                    "no_external_dependencies",
+                    "no_fake_precise_numbers",
+                    "no_localStorage_used",
+                    "viewbox_and_svg_valid"
+                ],
+                "properties": {
+                    "archetype_matches_topic": {"type": "boolean"},
+                    "elements_all_purposeful": {"type": "boolean"},
+                    "labels_do_not_overlap_shapes": {"type": "boolean"},
+                    "has_play_pause_reset": {"type": "boolean"},
+                    "dark_mode_supported": {"type": "boolean"},
+                    "responsive_below_400px": {"type": "boolean"},
+                    "no_external_dependencies": {"type": "boolean"},
+                    "no_fake_precise_numbers": {"type": "boolean"},
+                    "no_localStorage_used": {"type": "boolean"},
+                    "viewbox_and_svg_valid": {"type": "boolean"}
+                }
+            }
+        }
+    }
 }
 
 
-SIMULATION_SYSTEM = """You are openEBM's medical simulation architect. For ANY medical topic the user
-names, produce an EBMRetrieval-grade interactive step-by-step simulation.
+# Worked example is embedded as a STRING, not parsed as real HTML, so Python sees it as data.
+_WORKED_EXAMPLE_CARDIAC = r"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  :root{--bg:#ffffff;--fg:#0f172a;--muted:#64748b;--border:#e2e8f0;--card:#f8fafc;
+    --primary:#2563eb;--accent:#0891b2;--danger:#dc2626;--success:#059669;--warning:#d97706;}
+  [data-theme=dark]{--bg:#0b0f17;--fg:#e5e9f0;--muted:#94a3b8;--border:#1f2937;--card:#131927;
+    --primary:#60a5fa;--accent:#22d3ee;--danger:#f87171;--success:#34d399;--warning:#fbbf24;}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--fg);
+    font-family:-apple-system,system-ui,"Segoe UI",Roboto,sans-serif;font-size:14px}
+  .wrap{max-width:560px;margin:0 auto;padding:12px}
+  .phase{font-weight:700;font-size:15px;color:var(--primary);margin:4px 0 2px;text-align:center}
+  .desc{color:var(--muted);font-size:12.5px;text-align:center;min-height:2.6em;margin-bottom:8px}
+  svg{width:100%;height:auto;max-height:320px;display:block}
+  .controls{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-top:10px}
+  button{background:var(--card);color:var(--fg);border:1px solid var(--border);
+    border-radius:10px;padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer;
+    min-width:44px;min-height:40px}
+  button.primary{background:var(--primary);color:#fff;border-color:var(--primary)}
+  button:active{transform:scale(.96)}
+  .dots{display:flex;gap:6px;justify-content:center;margin-top:8px;flex-wrap:wrap}
+  .dot{width:28px;height:28px;border-radius:50%;border:1px solid var(--border);
+    background:var(--card);color:var(--fg);font-size:11px;font-weight:700;
+    display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+  .dot.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="phase" id="phaseTitle">Phase 1 / 5</div>
+  <div class="desc" id="phaseDesc">Loading...</div>
+  <svg viewBox="0 0 340 260" xmlns="http://www.w3.org/2000/svg" aria-label="Cardiac cycle diagram">
+    <defs>
+      <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+        <path d="M0,0 L10,5 L0,10 z" fill="var(--primary)"/>
+      </marker>
+    </defs>
+    <!-- LA / RA ovale atria -->
+    <ellipse id="la" cx="110" cy="70" rx="48" ry="28" fill="var(--card)" stroke="var(--border)" stroke-width="1.5"/>
+    <ellipse id="ra" cx="230" cy="70" rx="48" ry="28" fill="var(--card)" stroke="var(--border)" stroke-width="1.5"/>
+    <text x="110" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="var(--fg)">LA</text>
+    <text x="230" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="var(--fg)">RA</text>
+    <!-- AV valves -->
+    <line id="mv" x1="78" y1="100" x2="142" y2="100" stroke="var(--success)" stroke-width="3"/>
+    <line id="tv" x1="198" y1="100" x2="262" y2="100" stroke="var(--success)" stroke-width="3"/>
+    <!-- Ventricles: rounded rects -->
+    <rect id="lv" x="60" y="110" width="105" height="120" rx="18" fill="var(--card)" stroke="var(--border)" stroke-width="1.5"/>
+    <rect id="rv" x="175" y="110" width="105" height="120" rx="18" fill="var(--card)" stroke="var(--border)" stroke-width="1.5"/>
+    <text x="112" y="175" text-anchor="middle" font-size="12" font-weight="700" fill="var(--fg)">LV</text>
+    <text x="227" y="175" text-anchor="middle" font-size="12" font-weight="700" fill="var(--fg)">RV</text>
+    <!-- Pressure gauge right side -->
+    <rect x="300" y="50" width="22" height="180" rx="6" fill="var(--card)" stroke="var(--border)"/>
+    <rect id="pGauge" x="302" y="210" width="18" height="18" rx="4" fill="var(--primary)"/>
+    <text x="311" y="44" text-anchor="middle" font-size="9" fill="var(--muted)">LV P</text>
+  </svg>
+  <div class="controls">
+    <button id="back" aria-label="Back">&#9664;</button>
+    <button id="play" class="primary" aria-label="Play">&#9654; Play</button>
+    <button id="next" aria-label="Next">&#9654;</button>
+    <button id="reset" aria-label="Reset">&#8634;</button>
+  </div>
+  <div class="dots" id="dots"></div>
+</div>
+<script>
+  const theme=(new URLSearchParams(location.search)).get("theme")||"light";
+  document.documentElement.setAttribute("data-theme",theme);
+  const phases=[
+    {name:"Ventricular filling",desc:"AV valves open. Blood flows passively from atria into ventricles down a pressure gradient.",
+     lv:"var(--card)",rv:"var(--card)",mv:"var(--success)",tv:"var(--success)",p:25},
+    {name:"Atrial systole",desc:"Atrial contraction adds the final ~20% of filling ('atrial kick').",
+     lv:"var(--card)",rv:"var(--card)",mv:"var(--success)",tv:"var(--success)",p:35,la:"var(--primary)"},
+    {name:"Isovolumetric contraction",desc:"All valves closed. LV pressure rises sharply without volume change. S1 heart sound.",
+     lv:"var(--danger)",rv:"var(--danger)",mv:"var(--muted)",tv:"var(--muted)",p:80},
+    {name:"Ventricular ejection",desc:"LV pressure exceeds aortic pressure; semilunar valves open; stroke volume is ejected.",
+     lv:"var(--danger)",rv:"var(--danger)",mv:"var(--muted)",tv:"var(--muted)",p:180},
+    {name:"Isovolumetric relaxation",desc:"LV pressure falls below aortic pressure; semilunar valves close (S2). All valves shut again.",
+     lv:"var(--card)",rv:"var(--card)",mv:"var(--muted)",tv:"var(--muted)",p:60}
+  ];
+  let idx=0,playing=false,timer=null;
+  const $=id=>document.getElementById(id);
+  function render(){
+    const p=phases[idx];
+    $("phaseTitle").textContent="Phase "+(idx+1)+" / "+phases.length+" — "+p.name;
+    $("phaseDesc").textContent=p.desc;
+    $("lv").setAttribute("fill",p.lv);$("rv").setAttribute("fill",p.rv);
+    $("mv").setAttribute("stroke",p.mv);$("tv").setAttribute("stroke",p.tv);
+    $("la").setAttribute("fill",p.la||"var(--card)");
+    const maxP=200,h=Math.max(10,(p.p/maxP)*175);
+    $("pGauge").setAttribute("y",228-h);$("pGauge").setAttribute("height",h);
+    [...document.querySelectorAll(".dot")].forEach((d,i)=>d.classList.toggle("active",i===idx));
+  }
+  function step(d){idx=(idx+d+phases.length)%phases.length;render()}
+  function play(){playing=!playing;$("play").textContent=playing?"\u23F8 Pause":"\u25B6 Play";
+    if(playing){timer=setInterval(()=>step(1),1600)}else{clearInterval(timer)}}
+  $("play").onclick=play;$("next").onclick=()=>{if(playing)play();step(1)};
+  $("back").onclick=()=>{if(playing)play();step(-1)};
+  $("reset").onclick=()=>{if(playing)play();idx=0;render()};
+  const dots=$("dots");phases.forEach((_,i)=>{
+    const d=document.createElement("button");d.className="dot";d.textContent=i+1;
+    d.onclick=()=>{if(playing)play();idx=i;render()};dots.appendChild(d)});
+  render();
+</script>
+</body>
+</html>"""
 
-HARD REQUIREMENTS
-- 5 to 10 steps. Each step is a discrete mechanistic moment, not filler.
-- Every step.description must explain WHAT happens AND WHY (first-principles physics/chem/bio).
-- Every step must include a visual.elements array laying out a meaningful SVG scene in a
-  500×300 viewBox (coordinates 0-500 × 0-300). Use circle/rect/arrow/line/label.
-- Use named colors only: primary, accent, success, warning, danger, muted, text.
-- Labels must be short (<= 4 words) and placed so they don't overlap shapes.
-- Arrows carry meaning (flow, causation, feedback) — not decoration.
-- mechanism_first_principles: derive from fundamentals (gradients, charge, enzyme kinetics,
-  pressure/volume, receptor biology) — not a textbook restatement.
-- clinical_application: concrete bedside picture — what the clinician sees, tests, does,
-  and how the mechanism you drew determines each decision.
-- educational_notes: 3-5 high-yield pearls a strong resident would want on a card.
 
-=========================================================
-WORKED EXAMPLE  —  Topic: "Neuronal action potential"
-=========================================================
-Step 1 "Resting state" — Na+/K+ ATPase maintains -70 mV. Visual: rect membrane at y=150,
-  circles labeled "Na+" outside, "K+" inside, label "-70 mV". WHY: 3 Na+ out / 2 K+ in
-  per ATP creates both a chemical and electrical gradient; K+ leak channels dominate at rest.
-Step 2 "Threshold reached" — Stimulus depolarizes to -55 mV. Visual: arrow pointing into
-  membrane, rect color shifts to warning. WHY: voltage-gated Na+ channels have a steep
-  activation curve centered near -55 mV — below this, probability of opening is negligible.
-Step 3 "Rapid depolarization" — Na+ rushes in; membrane swings toward +30 mV. Visual:
-  multiple arrows (kind=arrow) crossing membrane inward, color=danger. WHY: Na+
-  electrochemical gradient is enormous and the channel is highly selective; current
-  follows Ohm's law on a low-resistance path.
-Step 4 "Peak and inactivation" — Na+ channels inactivate; K+ channels open. Visual: Na+
-  arrows fade (muted), K+ arrows appear outward (accent). WHY: Na+ channel inactivation
-  gate closes on a ~1 ms timescale, setting an absolute refractory period.
-Step 5 "Repolarization" — K+ efflux drives membrane back toward EK. Visual: outward K+
-  arrows, rect color returns to primary. WHY: driving force on K+ is maximal at +30 mV,
-  producing rapid repolarization.
-Step 6 "Hyperpolarization and reset" — Brief undershoot, then Na+/K+ pump restores
-  gradients. Visual: small downward label "-80 mV", pump rect. WHY: K+ channels close
-  slowly, transiently bringing Vm toward EK (~-90 mV) before returning to rest.
+def _build_simulation_system() -> str:
+    return """You are VisualEngine, openEBM's premium medical visualization generator.
 
-mechanism_first_principles: "Every action potential is the membrane obeying the Nernst
-equation for whichever ion currently has the highest permeability. The Na+/K+ ATPase
-stores energy in two ionic gradients; voltage-gated channels release that energy on a
-millisecond timescale. Because Na+ channels both activate and inactivate in a
-voltage-dependent way, the cell gets a self-terminating, all-or-none pulse instead of a
-runaway short-circuit."
+You transform a short medical topic into a polished, self-contained interactive HTML artifact plus two short prose explanations.
 
-clinical_application: "Local anesthetics (lidocaine) bind the inactivated state of the
-Na+ channel — why they work preferentially on firing nociceptors and why dose depends on
-fiber activity. Hyperkalemia depolarizes resting Vm, leaving more Na+ channels
-inactivated → wide QRS, peaked T waves, cardiac arrest. Hypocalcemia lowers the threshold
-for activation → tetany. Sodium-channel-blocker toxicity (TCAs, class I antiarrhythmics)
-widens QRS; sodium bicarbonate is the antidote because raising extracellular Na+ restores
-the gradient."
-=========================================================
+═══════════════════════════════════════════════════════════
+STEP 1 — CLASSIFY THE TOPIC INTO ONE ARCHETYPE
+═══════════════════════════════════════════════════════════
+Pick exactly one:
 
-Now generate the same caliber of spec for whatever topic the user names.
-Respond only by calling the submit_simulation_spec tool.
+  cyclic_process           — recurring phases (cardiac cycle, Krebs, cell cycle, menstrual cycle)
+  flow_pathway             — directed cascade (coagulation, complement, RAAS, glycolysis)
+  membrane_dynamics        — ion channels / transporters (action potential, SERCA, Na/K ATPase)
+  anatomical_cross_section — labeled structure (nephron, gastric gland, ear, eye)
+  feedback_loop            — negative/positive feedback (HPA axis, baroreceptor, thyroid)
+  comparison_curve         — x/y relationship (O2-Hb curve, Frank-Starling, dose-response)
+  phase_timeline           — linear developmental or disease progression
+  reaction_mechanism       — molecular events (enzyme catalysis, receptor binding)
+
+Each archetype has a proven layout. Use it. Do not improvise layout.
+
+═══════════════════════════════════════════════════════════
+STEP 2 — BUILD A SINGLE SELF-CONTAINED HTML DOCUMENT
+═══════════════════════════════════════════════════════════
+The artifact will render in a sandboxed iframe (sandbox="allow-scripts") at 340-560px wide.
+It reads the theme from ?theme=light or ?theme=dark in the URL.
+
+HARD RULES — FAILURE MODES TO AVOID:
+  ❌ NO external URLs (no fonts, no CDN, no images, no fetches)
+  ❌ NO localStorage / sessionStorage / cookies
+  ❌ NO parent window access
+  ❌ NO overlapping text on top of shapes (place labels OUTSIDE shapes or in dedicated label zones)
+  ❌ NO more than 8 primary SVG elements per phase (keep scenes readable)
+  ❌ NO unlabeled arrows or mystery shapes
+  ❌ NO random colors — use ONLY the CSS variable palette below
+  ❌ NO fake precise numbers ("LV pressure = 127.3 mmHg") — use ranges or omit
+  ❌ NO markdown, NO code fences, NO comments outside the HTML
+  ❌ NO absolute positioning that breaks below 340px width
+
+REQUIRED ELEMENTS:
+  ✓ <!DOCTYPE html> at the top
+  ✓ viewport meta tag for mobile
+  ✓ CSS variables with both light and dark theme (see palette below)
+  ✓ Reads ?theme=... from URL and sets data-theme on <html>
+  ✓ Inline <svg viewBox="0 0 340 260"> (or similar) — responsive width:100%
+  ✓ 4-7 phases/steps with a phase title and description above the SVG
+  ✓ Play / Pause / Back / Next / Reset buttons (min 44×40px for touch)
+  ✓ Numbered phase dots for direct navigation
+  ✓ Minimum 3000 characters total
+  ✓ Every shape has a clear educational purpose
+  ✓ Every label is short (≤4 words) and placed in a clear zone
+
+MANDATORY CSS PALETTE (do not use other colors):
+  :root{--bg:#ffffff;--fg:#0f172a;--muted:#64748b;--border:#e2e8f0;--card:#f8fafc;
+    --primary:#2563eb;--accent:#0891b2;--danger:#dc2626;--success:#059669;--warning:#d97706;}
+  [data-theme=dark]{--bg:#0b0f17;--fg:#e5e9f0;--muted:#94a3b8;--border:#1f2937;--card:#131927;
+    --primary:#60a5fa;--accent:#22d3ee;--danger:#f87171;--success:#34d399;--warning:#fbbf24;}
+
+═══════════════════════════════════════════════════════════
+WORKED EXAMPLE — Cardiac Cycle (archetype: cyclic_process)
+═══════════════════════════════════════════════════════════
+Below is a reference implementation. Match this quality level and structure. Adapt layout
+to your topic's archetype but mirror the code style, control bar, phase switching logic,
+CSS variables, and label placement discipline.
+
+""" + _WORKED_EXAMPLE_CARDIAC + """
+
+═══════════════════════════════════════════════════════════
+STEP 3 — WRITE THE PROSE FIELDS
+═══════════════════════════════════════════════════════════
+mechanism_first_principles: 4-7 sentences. Derive from fundamentals — gradients, charge,
+pressure, receptor biology, enzyme kinetics. Explain the WHY, not a textbook WHAT.
+
+clinical_application: 4-7 sentences. Concrete bedside picture: what the clinician sees,
+tests, decides, and how the mechanism drives each decision. Include specific drug classes
+or lab tests where relevant.
+
+pearls: 3-5 single-sentence high-yield clinical pearls.
+
+═══════════════════════════════════════════════════════════
+STEP 4 — SELF-CHECK (MANDATORY)
+═══════════════════════════════════════════════════════════
+Before submitting, fill in the self_check object honestly. If any check is false,
+fix the artifact before calling the tool. This is not optional.
+
+═══════════════════════════════════════════════════════════
+SUBMIT
+═══════════════════════════════════════════════════════════
+Call submit_visual_artifact exactly once. Do not write any text outside the tool call.
 """
 
 
-async def generate_simulation(topic: str, language: str = "en") -> Dict:
+SIMULATION_SYSTEM = _build_simulation_system()
+
+
+def _validate_artifact(spec: Dict) -> Optional[str]:
+    """Return an error string if the spec needs repair, else None."""
+    html = spec.get("artifact_html", "") or ""
+    if len(html) < 2000:
+        return "Artifact HTML is too short (<2000 chars). Return a richer artifact."
+    if "<!DOCTYPE" not in html[:200].upper() and "<!doctype" not in html[:200]:
+        return "Artifact must start with <!DOCTYPE html>."
+    if "<svg" not in html.lower():
+        return "Artifact must contain an inline <svg> element."
+    if "localStorage" in html or "sessionStorage" in html:
+        return "Remove all localStorage/sessionStorage use — sandboxed iframe blocks storage."
+    if "http://" in html or ("https://" in html and "xmlns" not in html.split("https://")[0][-30:]):
+        # allow xmlns="http://www.w3.org/2000/svg" but nothing else
+        suspicious = [u for u in re.findall(r'https?://[^\s"\'<>]+', html) if "w3.org" not in u]
+        if suspicious:
+            return f"Remove external URLs: {suspicious[:2]}. Artifact must be fully self-contained."
+    sc = spec.get("self_check", {}) or {}
+    failed = [k for k, v in sc.items() if v is False]
+    if failed:
+        return f"Your own self_check failed on: {', '.join(failed)}. Fix these and resubmit."
+    # Ensure controls exist (look for keywords)
+    low = html.lower()
+    if not ("play" in low and "reset" in low):
+        return "Artifact must include Play and Reset controls."
+    return None
+
+
+async def _call_simulation(topic: str, language: str, repair_note: Optional[str] = None) -> Dict:
     client = get_client()
-    user_msg = (
-        f"Topic: {topic}\n"
-        f"Output language for all prose fields: {language}\n"
-        "Build the full interactive simulation spec now."
-    )
+    user_msg = f"Topic: {topic}\nUI language: {language}\n\nBuild the full VisualEngine artifact for this topic now."
+    if repair_note:
+        user_msg += f"\n\nREPAIR REQUEST — your previous artifact failed this validation:\n{repair_note}\nReturn a corrected artifact."
 
     msg = await client.messages.create(
-        model=settings.CLAUDE_MODEL,  # use the strong model — quality matters here
-        max_tokens=6000,
+        model=settings.CLAUDE_MODEL,
+        max_tokens=12000,
+        temperature=0.3,
         system=SIMULATION_SYSTEM,
         messages=[{"role": "user", "content": user_msg}],
         tools=[SIMULATION_TOOL],
-        tool_choice={"type": "tool", "name": "submit_simulation_spec"},
+        tool_choice={"type": "tool", "name": "submit_visual_artifact"},
     )
-
     for block in msg.content:
-        if getattr(block, "type", None) == "tool_use" and block.name == "submit_simulation_spec":
+        if getattr(block, "type", None) == "tool_use" and block.name == "submit_visual_artifact":
             return block.input
+    raise ValueError("Claude did not return submit_visual_artifact tool_use output")
 
-    raise ValueError("Claude did not return simulation tool_use output")
+
+async def generate_simulation(topic: str, language: str = "en") -> Dict:
+    """Generate a VisualEngine artifact. One repair pass if validation fails."""
+    spec = await _call_simulation(topic, language)
+    err = _validate_artifact(spec)
+    if err:
+        print(f"[sim] first pass failed validation: {err}")
+        try:
+            spec = await _call_simulation(topic, language, repair_note=err)
+            err2 = _validate_artifact(spec)
+            if err2:
+                print(f"[sim] repair pass still has issues: {err2} — returning anyway")
+        except Exception as e:
+            print(f"[sim] repair pass exception: {e}")
+    return spec
