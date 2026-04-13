@@ -121,7 +121,7 @@ async def generate_answer(
 
     msg = await client.messages.create(
         model=settings.CLAUDE_MODEL,
-        max_tokens=12000,
+        max_tokens=16000,
         system=system,
         messages=[{"role": "user", "content": user}],
         tools=[
@@ -457,7 +457,7 @@ async def _call_simulation(topic: str, language: str, repair_note: Optional[str]
 
     msg = await client.messages.create(
         model=settings.CLAUDE_MODEL,
-        max_tokens=12000,
+        max_tokens=16000,
         temperature=0.3,
         system=SIMULATION_SYSTEM,
         messages=[{"role": "user", "content": user_msg}],
